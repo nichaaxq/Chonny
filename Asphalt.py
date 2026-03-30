@@ -68,4 +68,60 @@ else:
 
 st.markdown("---")
 
-# --- 5. การคำนวณตาม
+# --- 5. การคำนวณตามประเภท (Step 4 & 5) ---
+if "Flexible" in pavement_type:
+    st.header("Step 4: Layer Material & Calculation")
+    m_col1, m_col2 = st.columns(2)
+    with m_col1:
+        st.subheader("Material Properties")
+        cbr = st.number_input("Subgrade CBR (%)", value=5.0)
+        mr = 1500 * cbr
+        a1 = st.number_input("a1 (Asphalt Layer)", value=0.44)
+        a2 = st.number_input("a2 (Base Layer)", value=0.14)
+        m2 = st.number_input("m2 (Drainage Base)", value=1.0)
+        a3 = st.number_input("a3 (Subbase Layer)", value=0.11)
+        m3 = st.number_input("m3 (Drainage Subbase)", value=1.0)
+    
+    with m_col2:
+        st.subheader("Thickness Selection")
+        sn_req = fsolve(aashto_flexible, 3.0, args=(ZR, So, w18, delta_PSI, mr))[0]
+        st.write(f"### Required SN: :blue[{sn_req:.3f}]")
+        
+        d1 = st.number_input("Thickness D1 (Asphalt) [inch]", value=4.0)
+        d2 = st.number_input("Thickness D2 (Base) [inch]", value=6.0)
+        d3 = st.number_input("Thickness D3 (Subbase) [inch]", value=8.0)
+        
+        sn_prov = (a1*d1) + (a2*d2*m2) + (a3*d3*m3)
+        st.metric("Total SN Provided", f"{sn_prov:.3f}", delta=f"{sn_prov - sn_req:.3f}")
+        
+        if sn_prov >= sn_req: st.success("✅ โครงสร้างผ่านเกณฑ์")
+        else: st.error("❌ โครงสร้างไม่เพียงพอ")
+
+else:
+    st.header("Step 4: Rigid Pavement Parameters")
+    r_col1, r_col2 = st.columns(2)
+    with r_col1:
+        sc = st.number_input("Modulus of Rupture (Sc') [psi]", value=650)
+        ec = st.number_input("Modulus of Elasticity (Ec) [psi]", value=4000000)
+        k = st.number_input("Modulus of Subgrade Reaction (k) [pci]", value=150)
+        j = st.number_input("Load Transfer (J)", value=3.2)
+        cd = st.number_input("Drainage Coefficient (Cd)", value=1.0)
+    
+    with r_col2:
+        d_req = fsolve(aashto_rigid, 8.0, args=(ZR, So, w18, delta_PSI, sc, cd, j, ec, k))[0]
+        st.write(f"### Required Thickness (D): :blue[{d_req:.2f} inches]")
+        d_input = st.number_input("Design Slab Thickness [inch]", value=float(np.ceil(d_req)))
+        
+        if d_input >= d_req: st.success("✅ โครงสร้างผ่านเกณฑ์")
+        else: st.error("❌ โครงสร้างไม่เพียงพอ")
+
+# --- 6. Footer & Instructions ---
+st.markdown("---")
+with st.expander("ℹ️ คำแนะนำการใช้งาน"):
+    st.write("""
+    1. **Traffic:** คำนวณ ESALs จากจำนวนรถบรรทุกเฉลี่ยต่อวัน (AADT)
+    2. **MR:** คำนวณจากสูตรพื้นฐาน $M_R = 1500 \times CBR$ (หน่วย psi)
+    3. **J (Load Transfer):** - มี Dowel bar: 3.2
+       - ไม่มี Dowel bar: 3.8 - 4.4
+    4. **Output:** ค่า SN หรือ D ที่คำนวณได้เป็นหน่วย 'นิ้ว' ตามมาตรฐาน AASHTO
+    """)
