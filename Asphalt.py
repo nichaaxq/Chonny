@@ -13,59 +13,51 @@ def aashto_rigid(D, ZR, So, W18, delta_PSI, Sc, Cd, J, Ec, k):
     return ZR * So + 7.35 * np.log10(D + 1) - 0.06 + (np.log10(delta_PSI / 3.0) / (1 + (1.624e7 / (D + 1)**8.46))) + term4 - np.log10(W18)
 
 # --- 2. UI Setup ---
-st.set_page_config(page_title="Pavement Design (Metric Unit)", layout="wide")
-st.title("🛣️ AASHTO 1993: Axle Load (Tonnes) & Pavement Design")
+st.set_page_config(page_title="Pavement Design Pro", layout="wide")
+st.title("🛣️ AASHTO 1993: Full Axle Load & Pavement Design")
 
-# --- 3. Step 1: Truck Factor Calculator (Units: Tonnes) ---
-st.header("Step 1: คำนวณ Truck Factor จากน้ำหนักลงเพลา (หน่วย: ตัน)")
-with st.expander("เปิดส่วนคำนวณน้ำหนักลงเพลา", expanded=True):
-    st.write("ป้อนน้ำหนักลงเพลาเป็น 'ตัน' ระบบจะแปลงเป็น kips เพื่อหาค่า LEF ให้โดยอัตโนมัติ")
-    
-    # Conversion Factor: 1 Tonne = 2.20462 kips
-    TON_TO_KIPS = 2.20462
+# --- 3. Step 1: Custom Truck Factor Calculator ---
+st.header("Step 1: Custom Truck Factor Analysis")
+with st.expander("เปิดส่วนคำนวณ Truck Factor จากน้ำหนักลงเพลา (Axle Load)", expanded=False):
+    st.write("คำนวณหาค่า TF โดยอ้างอิงเพลามาตรฐาน 18,000 lb (80 kN)")
     
     col_a1, col_a2, col_a3 = st.columns(3)
     with col_a1:
         st.subheader("Single Axle (เพลาเดี่ยว)")
-        s_ton = st.number_input("น้ำหนักเพลาเดี่ยว (Tons)", value=8.2, step=0.5, help="มาตรฐานคือ 8.2 ตัน")
-        s_count = st.number_input("จำนวนเพลาเดี่ยวบนรถ", value=1, min_value=0)
-        s_kips = s_ton * TON_TO_KIPS
-        ealf_s = (s_kips / 18)**4 * s_count # มาตรฐานเพลาเดี่ยว 18 kips
-        st.caption(f"Equivalent to {s_kips:.2f} kips")
+        s_load = st.number_input("Weight per Single Axle (lb)", value=18000, step=1000)
+        s_count = st.number_input("Number of Single Axles on Truck", value=1, min_value=0)
+        ealf_s = (s_load / 18000)**4 * s_count
         
     with col_a2:
         st.subheader("Tandem Axle (เพลาคู่)")
-        t_ton = st.number_input("น้ำหนักเพลาคู่ (Tons)", value=15.0, step=0.5, help="มาตรฐานคือ 15 ตัน")
-        t_count = st.number_input("จำนวนเพลาคู่บนรถ", value=1, min_value=0)
-        t_kips = t_ton * TON_TO_KIPS
-        ealf_t = (t_kips / 33.2)**4 * t_count # มาตรฐานเพลาคู่ 33.2 kips
-        st.caption(f"Equivalent to {t_kips:.2f} kips")
+        t_load = st.number_input("Weight per Tandem Axle (lb)", value=32000, step=1000)
+        t_count = st.number_input("Number of Tandem Axles on Truck", value=1, min_value=0)
+        ealf_t = (t_load / 33200)**4 * t_count # 33.2k คือค่ามาตรฐาน Tandem
         
     with col_a3:
         st.subheader("Tridem Axle (เพลาสาม)")
-        tr_ton = st.number_input("น้ำหนักเพลาสาม (Tons)", value=21.0, step=0.5)
-        tr_count = st.number_input("จำนวนเพลาสามบนรถ", value=0, min_value=0)
-        tr_kips = tr_ton * TON_TO_KIPS
-        ealf_tr = (tr_kips / 45.4)**4 * tr_count # มาตรฐานเพลาสาม 45.4 kips
-        st.caption(f"Equivalent to {tr_kips:.2f} kips")
+        tr_load = st.number_input("Weight per Tridem Axle (lb)", value=48000, step=1000)
+        tr_count = st.number_input("Number of Tridem Axles on Truck", value=0, min_value=0)
+        ealf_tr = (tr_load / 45400)**4 * tr_count
 
     custom_tf = ealf_s + ealf_t + ealf_tr
-    st.info(f"🚚 **Truck Factor (TF) ที่คำนวณได้: {custom_tf:.4f}**")
+    st.info(f"🚚 Calculated Truck Factor (TF) for this vehicle: **{custom_tf:.4f}**")
 
 # --- 4. Step 2: Traffic ESALs ---
-st.header("Step 2: ปริมาณจราจร (Traffic)")
+st.header("Step 2: Traffic Estimation")
 t_col1, t_col2 = st.columns(2)
 with t_col1:
-    aadt_truck = st.number_input("ปริมาณรถบรรทุกเฉลี่ยต่อวัน (AADT_truck)", value=1000)
-    tf_final = custom_tf
+    aadt_truck = st.number_input("Total Trucks per Day (AADT_truck)", value=500)
+    use_custom_tf = st.checkbox("Use Calculated Truck Factor from Step 1", value=True)
+    tf_final = custom_tf if use_custom_tf else st.number_input("Manual Truck Factor", value=1.5)
 with t_col2:
-    growth = st.number_input("อัตราเพิ่มจราจร Growth Rate (%)", value=3.0) / 100
-    period = st.number_input("อายุการใช้งาน (ปี)", value=20)
+    growth = st.number_input("Growth Rate (%)", value=3.0) / 100
+    period = st.number_input("Design Life (Years)", value=20)
     gf = ((1 + growth)**period - 1) / growth
-    lane_dist = st.slider("Lane Distribution (DL)", 0.1, 1.0, 0.5)
+    lane_dist = st.slider("Lane Distribution Factor", 0.1, 1.0, 0.5)
 
 w18 = aadt_truck * tf_final * 365 * gf * lane_dist
-st.success(f"📈 **Total Design ESALs (W18): {w18:,.0f}**")
+st.success(f"📈 Total Design ESALs (W18): **{w18:,.0f}**")
 
 # --- 5. Step 3: Design Parameters (Sidebar) ---
 st.sidebar.header("Design Parameters")
@@ -77,24 +69,22 @@ pi = st.sidebar.number_input("Initial Serviceability (pi)", value=4.2 if p_type=
 pt = st.sidebar.number_input("Terminal Serviceability (pt)", value=2.5)
 
 # --- 6. Step 4: Layer Design ---
-st.header(f"Step 3: ออกแบบความหนา ({p_type})")
+st.header(f"Step 3: {p_type} Structure Design")
 d_col1, d_col2 = st.columns(2)
 
 if p_type == "Flexible (AC)":
     with d_col1:
         cbr = st.number_input("Subgrade CBR (%)", value=5.0)
         mr = 1500 * cbr
-        a1, a2, a3 = st.number_input("a1 (Surface)", 0.44), st.number_input("a2 (Base)", 0.14), st.number_input("a3 (Subbase)", 0.11)
+        a1, a2, a3 = st.number_input("a1", 0.44), st.number_input("a2", 0.14), st.number_input("a3", 0.11)
         m2, m3 = st.number_input("m2", 1.0), st.number_input("m3", 1.0)
     with d_col2:
         sn_req = fsolve(aashto_flexible, 3.0, args=(ZR, So, w18, pi-pt, mr))[0]
-        st.write(f"### Required Structural Number (SN): {sn_req:.3f}")
-        d1_cm = st.number_input("D1 (Asphalt) [cm]", value=10.0)
-        d2_cm = st.number_input("D2 (Base) [cm]", value=15.0)
-        d3_cm = st.number_input("D3 (Subbase) [cm]", value=20.0)
-        
-        # Convert cm to inch for SN Calculation (1 inch = 2.54 cm)
-        sn_prov = a1*(d1_cm/2.54) + a2*(d2_cm/2.54)*m2 + a3*(d3_cm/2.54)*m3
+        st.write(f"### Required SN: {sn_req:.3f}")
+        d1 = st.number_input("D1 (Asphalt) [in]", value=4.0)
+        d2 = st.number_input("D2 (Base) [in]", value=6.0)
+        d3 = st.number_input("D3 (Subbase) [in]", value=10.0)
+        sn_prov = a1*d1 + a2*d2*m2 + a3*d3*m3
         st.metric("SN Provided", f"{sn_prov:.3f}", delta=f"{sn_prov - sn_req:.3f}")
 else:
     with d_col1:
@@ -104,15 +94,13 @@ else:
         j = st.number_input("Load Transfer (J)", value=3.2)
         cd = st.number_input("Drainage (Cd)", value=1.0)
     with d_col2:
-        d_req_in = fsolve(aashto_rigid, 8.0, args=(ZR, So, w18, pi-pt, sc, cd, j, ec, k))[0]
-        d_req_cm = d_req_in * 2.54
-        st.write(f"### Required Thickness: {d_req_cm:.2f} cm")
-        d_in_cm = st.number_input("Design Slab Thickness [cm]", value=float(np.ceil(d_req_cm)))
-        d_in = d_in_cm / 2.54
+        d_req = fsolve(aashto_rigid, 8.0, args=(ZR, So, w18, pi-pt, sc, cd, j, ec, k))[0]
+        st.write(f"### Required Thickness: {d_req:.2f} inches")
+        d_in = st.number_input("Design Thickness [in]", value=float(np.ceil(d_req)))
+        st.info(f"Actual Thickness: {d_in} in")
 
-# --- Final Result ---
-if (p_type=="Flexible (AC)" and sn_prov >= sn_req) or (p_type=="Rigid (Concrete)" and d_in_cm >= d_req_cm):
+if (p_type=="Flexible (AC)" and sn_prov >= sn_req) or (p_type=="Rigid (Concrete)" and d_in >= d_req):
     st.balloons()
-    st.success("✅ โครงสร้างผ่านเกณฑ์ (Design Satisified)")
+    st.success("SUCCESS: Design satisfies the requirements!")
 else:
-    st.error("❌ โครงสร้างไม่เพียงพอ (Design Inadequate)")
+    st.error("FAIL: Design is insufficient.")
